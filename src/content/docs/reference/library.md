@@ -89,7 +89,7 @@ function rawlen<K, V>(t: { [K]: V } | string): number
 Returns the raw length of the table or string. If it is a string, this operation is identical to `#str` or `string.len(str)`. This operation bypasses metatables/`__len`.
 
 ```
-function rawset<K, V>(t: { [K] : V }, k: K, v: V)
+function rawset<K, V>(t: { [K]: V }, k: K, v: V)
 ```
 
 Assigns table field `k` to the value `v`. This operation bypasses metatables/`__newindex`.
@@ -140,26 +140,26 @@ Returns the type of the object; for userdata objects that have a metatable with 
 For custom userdata objects, such as ones returned by `newproxy`, this function returns `"userdata"` to make sure host-defined types can not be spoofed.
 
 ```
-function ipairs(t: table): <iterator>
+function ipairs<V>(t: { V }): (({ V }, number) -> (number?, V), { V }, number)
 ```
 
-Returns the triple (generator, state, nil) that can be used to traverse the table using a `for` loop. The traversal results in key-value pairs for the numeric portion of the table; key starts from 1 and increases by 1 on each iteration. The traversal terminates when reaching the first `nil` value (so `ipairs` can't be used to traverse array-like tables with holes).
+Returns the triple (generator, value, state) that can be used to traverse the table using a `for` loop. The traversal results in key-value pairs for the numeric portion of the table; key starts from 1 and increases by 1 on each iteration. The traversal terminates when reaching the first `nil` value (so `ipairs` can't be used to traverse array-like tables with holes).
 
 ```
-function pairs(t: table): <iterator>
+function pairs<K, V>(t: { [K]: V }): (({ [K]: V }, K?) -> (K?, V), { [K]: V }, nil)
 ```
 
-Returns the triple (generator, state, nil) that can be used to traverse the table using a `for` loop. The traversal results in key-value pairs for all keys in the table, numeric and otherwise, but doesn't have a defined order.
+Returns the triple (generator, value, state) that can be used to traverse the table using a `for` loop. The traversal results in key-value pairs for all keys in the table, numeric and otherwise, but doesn't have a defined order.
 
 ```
-function pcall(f: function, args: ...any): (boolean, ...any)
+function pcall<A..., R...>(f: (A...) -> R...), args: A...): (boolean, R...)
 ```
 
 Calls function `f` with parameters `args`. If the function succeeds, returns `true` followed by all return values of `f`. If the function raises an error, returns `false` followed by the error object.
 Note that `f` can yield, which results in the entire coroutine yielding as well.
 
 ```
-function xpcall(f: function, e: function, args: ...any): (boolean, ...any)
+function xpcall<A..., R1..., R2...>(f: (A...) -> R1..., e: (unknownUses a remark plugin) -> ...R2, args: A...): (boolean, R1...)
 ```
 
 Calls function `f` with parameters `args`. If the function succeeds,  returns `true` followed by all return values of `f`. If the function raises an error, calls `e` with the error object as an argument, and returns `false` followed by the first return value of `e`.
@@ -533,13 +533,13 @@ Returns a formatted version of the input arguments using a [printf-style format 
 The formats support modifiers `-`, `+`, space, `#` and `0`, as well as field width and precision modifiers - with the exception of `*`.
 
 ```
-function string.gmatch(s: string, p: string): <iterator>
+function string.gmatch(s: string, p: string): () -> string?
 ```
 
 Produces an iterator function that, when called repeatedly explicitly or via `for` loop, produces matches of string `s` with [string pattern](https://www.lua.org/manual/5.3/manual.html#6.4.1) `p`. For every match, the captures within the pattern are returned if present (if a pattern has no captures, the entire matching substring is returned instead).
 
 ```
-function string.gsub(s: string, p: string, f: function | table | string, maxs: number?): (string, number)
+function string.gsub(s: string, p: string, f: (string) -> string | { [string]: string } | string, maxs: number?): (string, number)
 ```
 
 For every match of [string pattern](https://www.lua.org/manual/5.3/manual.html#6.4.1) `p` in `s`, replace the match according to `f`. The substitutions stop after the limit of `maxs`, and the function returns the resulting string followed by the number of substitutions.
@@ -633,7 +633,7 @@ function coroutine.status(co: thread): string
 Returns the status of the coroutine, which can be `"running"`, `"suspended"`, `"normal"` or `"dead"`. Dead coroutines have finished their execution and can not be resumed, but their state can still be inspected as they are not dead from the garbage collector point of view.
 
 ```
-function coroutine.wrap(f: function): function
+function coroutine.wrap<A...>(f: (A...) -> ...unknown): (A...) -> ...unknown
 ```
 
 Creates a new coroutine and returns a function that, when called, resumes the coroutine and passes all arguments along to the suspension point. When the coroutine yields or finishes, the wrapped function returns with all values returned at the suspension point.
@@ -786,7 +786,7 @@ Returns the number of Unicode codepoints with the starting byte offset in `[i..j
 `i` defaults to 1 and `j` defaults to `#s`, so `utf8.len(s)` returns the number of Unicode codepoints in string `s` or `nil` if the string is malformed.
 
 ```
-function utf8.codes(s: string): <iterator>
+function utf8.codes(s: string): ((string, number) -> (number, number), string, number)
 ```
 
 Returns an iterator that, when used in `for` loop, produces the byte offset and the codepoint for each Unicode codepoints that `s` consists of.
@@ -800,7 +800,19 @@ function os.clock(): number
 Returns a high-precision timestamp (in seconds) that doesn't have a defined baseline, but can be used to measure duration with sub-microsecond precision.
 
 ```
-function os.date(s: string?, t: number?): table | string
+function os.date(s: string?, t: number?):
+  | {
+      year: number,
+      month: number,
+      day: number,
+      hour: number,
+      min: number,
+      sec: number,
+      wday: number,
+      yday: number,
+      isdst: boolean,
+    }
+  | string
 ```
 
 Returns the table or string representation of the time specified as `t` (defaults to current time) according to `s` format string.
@@ -818,7 +830,7 @@ function os.difftime(a: number, b: number): number
 Calculates the difference in seconds between `a` and `b`; provided for compatibility only. Please use `a - b` instead.
 
 ```
-function os.time(t: table?): number
+function os.time(t: { year: number, month: number, day: number, hour: number?, min: number?, sec: number? }?): number
 ```
 
 When called without arguments, returns the current date/time as a Unix timestamp. When called with an argument, expects it to be a table that contains `sec`/`min`/`hour`/`day`/`month`/`year` keys and returns the Unix timestamp of the specified date/time in UTC.

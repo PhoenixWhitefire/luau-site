@@ -1329,7 +1329,7 @@ Returns the pointer to the start of the data.
 This function cannot be used if the metatable was not associated with the tag.
 
 ```c
-void* lua_newuserdatadtor(lua_State* L, size_t sz, void (*dtor)(void*));
+void* lua_newuserdatadtor(lua_State* L, size_t sz, lua_Destructor dtor);
 ```
 
 Places a new `userdata` object with the data size `sz` on top of the stack.
@@ -1337,6 +1337,17 @@ A custom destructor C function is assigned to the value.
 Returns the pointer to the start of the data.
 
 Destructor C function cannot be a `nullptr`.
+
+```c
+typedef void (*lua_Destructor)(lua_State* L, void* userdata);
+```
+
+The signature of the destructor callback.
+
+* `userdata` - pointer to the userdata data
+
+Interactions with Luau VM from a destructor must be limited as callbacks are called from the garbage-collection stage.
+Our recommendation is to only look up `lua_getthreaddata` for associated host data and postpone any additional cleanup to a later Luau VM resume point.
 
 ```c
 void lua_setuserdatatag(lua_State* L, int idx, int tag);
@@ -1352,17 +1363,6 @@ void lua_setuserdatadtor(lua_State* L, int tag, lua_Destructor dtor);
 
 Sets the destructor function to use when `userdata` with the specified tag is garbage-collected.
 Destructor of the value can be reassigned or set to `nullptr`.
-
-```c
-typedef void (*lua_Destructor)(lua_State* L, void* userdata);
-```
-
-The signature of the destructor callback.
-
-* `userdata` - pointer to the userdata data
-
-Interactions with Luau VM from a destructor must be limited as callbacks are called from the garbage-collection stage.
-Our recommendation is to only look up `lua_getthreaddata` for associated host data and postpone any additional cleanup to a later Luau VM resume point.
 
 ```c
 lua_Destructor lua_getuserdatadtor(lua_State* L, int tag);
@@ -1960,6 +1960,18 @@ void lua_memorydump(lua_State* L, void* file, lua_CategoryName categoryName);
 
 Writes a Luau memory dump to a `FILE*` in JSON format.
 The `categoryName` callback, when provided, will be called to record a name associated with any active memory categories.
+
+```c
+typedef void* (*lua_CageAlloc)(void* ud, void* ptr, size_t osize, size_t nsize, int type);
+
+void lua_setbuffercage(lua_State* L, lua_CageAlloc alloc, void* ud);
+```
+
+Assigns an isolated allocator for buffers. Must be called after `lua_newstate` and before the state creates any buffers.
+The VM makes no assumptions about the layout or structure of the caged heap.
+The VM assumes that the embedder will free any memory allocated if the `lua_State` the cage is associated with is closed.
+
+The `type` argument to the callback identifies the caged heap allocation, which is an opaque embedder-defined identifier.
 
 ## Error Handling
 

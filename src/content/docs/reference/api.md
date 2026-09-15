@@ -2132,6 +2132,7 @@ Information is filled into `lua_Debug` structure specified by `ar` according to 
 * `a` - arity of the function, number of parameters (`nparams`) and if it is variadic or not (`isvararg`)
 * `n` - name of the function or `nullptr` if not available
 * `f` - the function value itself, placing it on top of the stack
+* `p` - sets `protoid` to the ID of the function prototype, unique per VM, as well as `bytecodeid` to its index within its bytecode module (will be -1 for C functions)
 
 ```c
 int lua_getargument(lua_State* L, int level, int n);
@@ -2274,6 +2275,7 @@ The struct contains:
 * `debugprotectederror` - gets called when an error happens inside a protected call
 * `onallocate` - gets called when memory is allocated with arguments similar to `lua_Alloc`
   * callback is provided with the previous allocation size `osize` (0 for fresh allocations) and new size `nsize`
+* `onfree` - gets called before a heap object or array is freed
 
 `interrupt` callback is allowed to be set from a thread separate from the one running the VM.
 
